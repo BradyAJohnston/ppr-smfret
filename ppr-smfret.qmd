@@ -3,6 +3,7 @@ title: "ppr-smfret"
 fig-width: 9
 fig-align: center
 code-fold: true
+code-link: true
 ---
 
 ## Fluorescently Labelling Protein
