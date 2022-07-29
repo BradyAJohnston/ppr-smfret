@@ -1,0 +1,216 @@
+---
+title: "ppr-smfret"
+fig-width: 9
+fig-align: center
+code-fold: true
+---
+
+## Fluorescently Labelling Protein
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+
+read_spectro <- function(fl) {
+  start <- readLines(fl) |> 
+    str_which("Wavelength")
+  
+  read_csv(
+    file = fl, 
+    skip = start - 1, 
+    col_select = !contains(".."), 
+    col_types = cols()
+    ) |> 
+    janitor::clean_names()
+}
+
+```
+
+#### Read in the data for both datasets.
+```{r}
+#| warning: false
+df <- read_spectro("~/Desktop/test_export.csv")
+
+df1 <- df |> 
+  pivot_longer(
+    cols = -1,
+    names_to = "sample", 
+    values_to = "abs"
+  ) |> 
+  mutate(
+    ratio = case_when(
+      str_detect(sample, "1to?2") ~ "1to2", 
+      str_detect(sample, "1to1_5") ~ "1to1.5", 
+      str_detect(sample, "1to1") ~ "1to1", 
+      TRUE ~ "blank"
+    ), 
+    time = "pre", 
+    distance = 0.2
+  )
+
+fl <- "~/Desktop/20220729_prot_dye_post_desalt.csv"
+df <- read_spectro(fl)
+
+df |> 
+  pivot_longer(
+    cols = -1, 
+    names_to = "sample", 
+    values_to = "abs"
+  ) |> 
+  mutate(
+    distance = str_extract(sample, "\\d(?=m)"), 
+    distance = if_else(is.na(distance), "2", distance), 
+    distance = as.numeric(distance) * 0.1, 
+    time = "post"
+  ) -> df
+  
+df <- df |> 
+  mutate(
+    ratio = case_when(
+      str_detect(sample, "1to2") ~ "1to2", 
+      str_detect(sample, "1to1_5") ~ "1to1.5", 
+      str_detect(sample, "1to1") ~ "1to1", 
+      TRUE ~ "blank"
+    )
+  )
+```
+
+Plotting the absorbance of the different samples, before the desalting step to 
+remove the unbound dyes.
+
+```{r}
+#| code-fold: show
+df1 |> 
+  filter(ratio != "blank") |> 
+  ggplot(aes(wavelength_nm, abs, colour = ratio)) + 
+  geom_vline(xintercept = c(545, 650), size = 5, alpha = 0.1) + 
+  geom_line() + 
+  theme_bw() + 
+  coord_cartesian(ylim = c(NA, 14)) + 
+  theme(
+    legend.position = "bottom"
+  ) + 
+  labs(x = "Wavelength (nm)", 
+       y = "Absorbance (AU)", 
+       colour = "Cy3:AF647 Ratio"
+       )
+```
+
+As you would expect, there is an increasing peaking at 550 nm that corresponds to the 
+increasing amount of acceptor dye that is being added.
+
+### Plotting the samples after the labelling step.
+
+```{r}
+#| code-fold: show
+df |>
+  filter(ratio != "blank") |> 
+  filter(distance != 0.2) |> 
+  ggplot(aes(wavelength_nm, abs, colour = ratio)) + 
+  geom_vline(xintercept = c(550, 650), size = 5, alpha = 0.1) + 
+  geom_line() + 
+  theme_bw() + 
+  coord_cartesian(ylim = c(NA, 0.9)) + 
+  theme(
+    legend.position = "bottom"
+  ) + 
+  labs(x = "Wavelength (nm)", 
+       y = "Absorbance (AU)", 
+       colour = "Cy3:AF647 Ratio"
+       )
+```
+
+There is much less absorbance in the acceptor peak. The samples also seem a lot 'pinker' than they should. Seems that there is a lot less acceptor around, potentially meaning that the dye hasn't labelled the protein successfully.
+
+
+```{r}
+cdf <- bind_rows(df, df1) |> 
+  filter(ratio != "blank") |> 
+  filter(!(time == "post" & distance == 0.2))
+
+wl_range <- function(wl, radius = 2) {
+  seq(wl - radius, wl + radius)
+}
+
+# bin & average wl data
+
+binned <- cdf |> 
+  group_by(time, sample) |> 
+  mutate(
+    signal = case_when(
+      wavelength_nm %in% wl_range(280) ~ "prot",
+      wavelength_nm %in% wl_range(550) ~ "don",
+      wavelength_nm %in% wl_range(650) ~ "acc"
+    )
+  ) |> 
+  drop_na(signal) |> 
+  group_by(sample, time, ratio, distance, signal) |> 
+  summarise(
+    abs = mean(abs)
+  )
+
+binned <- binned |> 
+
+  mutate(
+    ext = case_when(
+      signal == "prot" ~ 30955, 
+      signal == "don" ~ 150000, 
+      signal == "acc" ~ 265000
+    ), 
+    mw = case_when(
+      signal == "prot" ~ 69803, 
+      signal == "don" ~ 666, 
+      signal == "acc" ~ 1250
+    )
+  ) |> 
+  mutate(
+    conc = abs / ext / (distance  / 10), 
+    volume = case_when(
+      time == "pre" ~ 1e-3, 
+      time == "post" ~ 2e-3
+    ), 
+    amount = conc * volume, 
+    time = factor(time, levels = c("pre", "post"))
+  )
+```
+
+### Plotting Ratio of Dyes to Protein
+
+```{r}
+
+pos = position_dodge2(width = 0.9)
+
+binned |> 
+  group_by(sample, time, ratio) |> 
+  mutate(
+    per_prot = amount / amount[which(signal == "prot")]
+  ) |> 
+  ggplot(aes(ratio, per_prot, fill = signal)) + 
+  geom_col(position = pos) +
+  facet_grid(
+    rows = vars(time),
+    # cols = vars(distance), 
+    scales = "free_y"
+  ) + 
+  theme_bw() + 
+  labs(
+    x = "Cy3 to AF647 Ratio", 
+    y = "Ratio Dye to Protein", 
+    fill = "Dye"
+  ) + 
+  theme(
+    legend.position = "bottom"
+  ) + 
+  geom_label(
+    fill = "white",
+    aes(label = round(per_prot, 2)), 
+    position = pos
+    )
+
+```
+
+For some reason, the acceptor dye (AF647) is very low in the post-labelling.
+
+I need to make some adjustments, as I don't think the ratios of the dyes to the
+protein are quite correct due to the $CF_{280}$ of the two dyes which both will absorb a small amoutn at 280 nm, false boosting the amount of 'protein' that is detected.
