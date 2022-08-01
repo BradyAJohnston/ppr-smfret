@@ -26,12 +26,86 @@ read_spectro <- function(fl) {
     janitor::clean_names()
 }
 
+chrom_interp_volume <- function(df) {
+  df |> 
+    dplyr::select(time, volume) |> 
+    unique() |> 
+    dplyr::mutate(
+      same = volume != lag(volume), 
+      same = dplyr::if_else(is.na(same), TRUE, FALSE), 
+      group = cumsum(same)
+    ) |> 
+    dplyr::group_by(group, volume) |> 
+    tidyr::nest() |> 
+    dplyr::ungroup() |> 
+    dplyr::mutate(
+      vol_new = lead(volume)
+    ) |> 
+    tidyr::unnest() |> 
+    dplyr::group_by(volume) |> 
+    dplyr::mutate(
+      row = dplyr::row_number(), 
+      factor = row / max(row), 
+      vol_adjusted = volume + factor * (vol_new - volume)
+    ) |> 
+    dplyr::ungroup() |> 
+    dplyr::select(time, volume = vol_adjusted)
+}
+
+chrom_read_quadtech <- function(file) {
+  start_line <- readr::read_lines(file, n_max = 50) |>
+    stringr::str_trim() |>
+    stringr::str_which("^\\d") |>
+    min()
+  
+  data <-
+    readr::read_csv(file, skip = start_line - 2, col_types = readr::cols())
+  
+  met <-
+    readr::read_csv(
+      file,
+      n_max = start_line - 3,
+      col_names = FALSE,
+      col_types = readr::cols()
+    ) |>
+    dplyr::rename(category = 1, meta = 2)
+  
+  met <- met |>
+    dplyr::filter(str_detect(category, "Quad")) |>
+    dplyr::mutate(
+      wl = as.numeric(stringr::str_extract(meta, "\\d{3}")),
+      channel = as.numeric(stringr::str_extract(category, "\\d$"))
+    )
+  
+  
+  data <- data |>
+    janitor::clean_names() |>
+    tidyr::pivot_longer(cols = contains("quad")) |>
+    dplyr::mutate(name = as.numeric(str_extract(name, "\\d$"))) |>
+    dplyr::rename(channel = name) |>
+    dplyr::left_join(met,
+                     by = c("channel" = "channel"))
+  
+  volume_interp <- chrom_interp_volume(data)
+  
+  data <- data |>
+    select(-volume) |> 
+    left_join(volume_interp, by = c("time" = "time"))
+
+  data
+}
+
 ```
 
+To create more of the dsnPPR10-C2 protein that is labelled for smFRET experiments, conducting the labelling of the proteins with new dyes that have been ordered.
+
+Testing the labelling procedure with 3 different ratios to see which is the best, 1to1, 1to1.5 & 1to2 for ratios of Cy3AF647.
+
 #### Read in the data for both datasets.
+
 ```{r}
 #| warning: false
-df <- read_spectro("~/Desktop/test_export.csv")
+df <- read_spectro("data/20220729_dppr10_dye_pre_desalt.csv")
 
 df1 <- df |> 
   pivot_longer(
@@ -50,7 +124,7 @@ df1 <- df |>
     distance = 0.2
   )
 
-fl <- "~/Desktop/20220729_prot_dye_post_desalt.csv"
+fl <- "data/20220729_dppr10_dye_post_desalt.csv"
 df <- read_spectro(fl)
 
 df |> 
@@ -77,8 +151,7 @@ df <- df |>
   )
 ```
 
-Plotting the absorbance of the different samples, before the desalting step to 
-remove the unbound dyes.
+Plotting the absorbance of the different samples, before the desalting step to remove the unbound dyes.
 
 ```{r}
 #| code-fold: show
@@ -98,8 +171,7 @@ df1 |>
        )
 ```
 
-As you would expect, there is an increasing peaking at 550 nm that corresponds to the 
-increasing amount of acceptor dye that is being added.
+As you would expect, there is an increasing peaking at 550 nm that corresponds to the increasing amount of acceptor dye that is being added.
 
 ### Plotting the samples after the labelling step.
 
@@ -123,7 +195,6 @@ df |>
 ```
 
 There is much less absorbance in the acceptor peak. The samples also seem a lot 'pinker' than they should. Seems that there is a lot less acceptor around, potentially meaning that the dye hasn't labelled the protein successfully.
-
 
 ```{r}
 cdf <- bind_rows(df, df1) |> 
@@ -213,5 +284,51 @@ binned |>
 
 For some reason, the acceptor dye (AF647) is very low in the post-labelling.
 
-I need to make some adjustments, as I don't think the ratios of the dyes to the
-protein are quite correct due to the $CF_{280}$ of the two dyes which both will absorb a small amoutn at 280 nm, false boosting the amount of 'protein' that is detected.
+I need to make some adjustments, as I don't think the ratios of the dyes to the protein are quite correct due to the $CF_{280}$ of the two dyes which both will absorb a small amount at 280 nm, false boosting the amount of 'protein' that is detected.
+
+I am thoroughly confused as to why there might be such a significant difference in the labelling success for these dyes. Everything should have been basically the same as it was previously, the only thing that would be different is the age of the protein, but why that would affect a single dye (AF647) I don't know, so I don't think that is the actual cause.
+
+The only other thing that I can think of that is different, is that the AF647 was previously suspended in Milli-Q water, but this time I dissolved it into 100% DMSO. I will have to double check what I wrote in the lab-book for the previous labelling procedure. I wouldn't think that it would make a difference, but it seems that it might.
+
+I still conducted the labelling reaction in 5% DMSO like I did previously, so I still don't know how it would have made a difference in the final reaction having been solubilised in DMSO and not water despite being soluble in both.
+
+## Confirming with SEC
+
+It seems from the spectro readings that there isn't any AF647 properly attaching to the protein. To confirm this, I'll do analytical SEC on the Quadtec to see if there is any absorbance from the acceptor AF647 on the protein peak or not.
+
+```{r}
+#| warning: false
+#| code-fold: show
+#| label: sec
+#| fig-cap: Chromatogram of absorbance readings for four (4) different wavelengths (260 nm, 280 nm, 550 nm, 650 nm) from analytical size-exclusion chromatography. 50 $\mu$L injection volume. 0.3 mL / min.
+fl <- "data/sec/20220801_S200_5150_0.3mlmin_5uLinject_Cy3_1_AF647_2.TXT"
+
+df <- chrom_read_quadtech(fl)
+
+df |>
+  mutate(value = value * 1e3) |> 
+  ggplot(aes(volume, value, colour = factor(wl))) +
+  geom_line() +
+  theme_bw() +
+  coord_cartesian(ylim = c(0, NA), xlim = c(0, 3)) + 
+  geom_label(
+    data = tribble(
+      ~label, ~volume, ~value, 
+      "Void", 0.93, 11, 
+      "Protein", 1.6, 14, 
+      "AF647", 2.2, 28
+    ), 
+    aes(label = label), 
+    colour = "black"
+  ) + 
+  labs(
+    x = "Volume (mL)", 
+    y = "Absorbance (mAU)", 
+    colour = "Wavelength (nm)"
+  ) + 
+  theme(
+    legend.position = c(0.05, 0.9),
+    legend.justification = c(0, 1), 
+    legend.box.background = element_rect(colour = "black", fill = "white")
+  )
+```
