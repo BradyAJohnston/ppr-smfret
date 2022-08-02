@@ -15,13 +15,13 @@ library(tidyverse)
 
 read_spectro <- function(fl) {
   start <- readLines(fl) |> 
-    str_which("Wavelength")
+    stringr::str_which("Wavelength")
   
-  read_csv(
+  readr::read_csv(
     file = fl, 
     skip = start - 1, 
     col_select = !contains(".."), 
-    col_types = cols()
+    col_types = readr::cols()
     ) |> 
     janitor::clean_names()
 }
@@ -105,7 +105,8 @@ Testing the labelling procedure with 3 different ratios to see which is the best
 
 ```{r}
 #| warning: false
-df <- read_spectro("data/20220729_dppr10_dye_pre_desalt.csv")
+fl <- here::here("data/20220729_dppr10_dye_pre_desalt.csv")
+df <- read_spectro(fl)
 
 df1 <- df |> 
   pivot_longer(
@@ -124,7 +125,7 @@ df1 <- df |>
     distance = 0.2
   )
 
-fl <- "data/20220729_dppr10_dye_post_desalt.csv"
+fl <- here::here("data/20220729_dppr10_dye_post_desalt.csv")
 df <- read_spectro(fl)
 
 df |> 
@@ -301,7 +302,7 @@ It seems from the spectro readings that there isn't any AF647 properly attaching
 #| code-fold: show
 #| label: sec
 #| fig-cap: Chromatogram of absorbance readings for four (4) different wavelengths (260 nm, 280 nm, 550 nm, 650 nm) from analytical size-exclusion chromatography. 50 $\mu$L injection volume. 0.3 mL / min.
-fl <- "data/sec/20220801_S200_5150_0.3mlmin_5uLinject_Cy3_1_AF647_2.TXT"
+fl <- here::here("data/sec/20220801_S200_5150_0.3mlmin_5uLinject_Cy3_1_AF647_2.TXT")
 
 df <- chrom_read_quadtech(fl)
 
