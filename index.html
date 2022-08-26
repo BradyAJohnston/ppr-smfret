@@ -67,9 +67,9 @@ ul.task-list{list-style: none;}
     }
 
     const options = {
-      valueNames: ['listing-title','listing-author','listing-description','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
+      valueNames: ['listing-title','listing-author','listing-date','listing-description','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
       
-      searchColumns: ["listing-title","listing-author","listing-description","listing-categories"],
+      searchColumns: ["listing-title","listing-author","listing-date","listing-description","listing-categories"],
     };
 
     window['quarto-listings'] = window['quarto-listings'] || {};
@@ -152,29 +152,30 @@ ul.task-list{list-style: none;}
 
 <div class="quarto-listing quarto-listing-container-grid" id="listing-listing">
 <div class="list grid quarto-listing-cols-3">
-<div class="g-col-1" data-index="0" data-listing-file-modified-sort="1661495253766" data-listing-reading-time-sort="2.405">
-<a href="./experiments/dye-labelling-test/dye-labelling-test.html" class="quarto-grid-link">
+<div class="g-col-1" data-index="0" data-listing-date-sort="1661443200000" data-listing-file-modified-sort="1661507192705" data-listing-reading-time-sort="4.72">
+<a href="./experiments/dye-labelling-test.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
-ppr-smfret
+Testing the Efficacy of the AF647 in Labelling
 </h5>
 <div class="card-text listing-description">
-Testing the labelling effectiveness, using analytical SEC after incubation for labelling. I had 6 different labelling reactions, with two different proteins.<br>
-<br>
-
+In the previous attempt at in labelling in previous attempt I was unsuccessful in labelling the protein with <em>any</em> amount of AF647. I had tested both 1, 1.5 and 2 times the ratio of AF647 to Cy3, to account for inefficiencies in labelling. In this experiment I conducted labelling with equimolar concentrations of Cy3 and AF647, but also labelled the the protein with either by itself as well. As a control I also conducted the labelling experiment on BSA, which has a free cysteine that is solvent exposed and able to react with maleimide dyes.
 </div>
-<div class="card-attribution card-text-small start">
+<div class="card-attribution card-text-small justify">
 <div class="listing-author">
-
+Brady Johnston
+</div>
+<div class="listing-date">
+Aug 26, 2022
 </div>
 </div>
 </div>
 </div>
 </a>
 </div>
-<div class="g-col-1" data-index="1" data-listing-file-modified-sort="1659437971745" data-listing-reading-time-sort="10.44">
-<a href="./experiments/dye-labelling/dye-labelling.html" class="quarto-grid-link">
+<div class="g-col-1" data-index="1" data-listing-date-sort="1659283200000" data-listing-file-modified-sort="1661507303079" data-listing-reading-time-sort="10.455">
+<a href="./experiments/dye-labelling.html" class="quarto-grid-link">
 <div class="quarto-grid-item card h-100 card-left">
 <div class="card-body post-contents">
 <h5 class="no-anchor card-title listing-title">
@@ -183,9 +184,12 @@ ppr-smfret
 <div class="card-text listing-description">
 To create more of the dsnPPR10-C2 protein that is labelled for smFRET experiments, conducting the labelling of the proteins with new dyes that have been ordered.
 </div>
-<div class="card-attribution card-text-small start">
+<div class="card-attribution card-text-small justify">
 <div class="listing-author">
-
+Brady Johnston
+</div>
+<div class="listing-date">
+Aug 1, 2022
 </div>
 </div>
 </div>
