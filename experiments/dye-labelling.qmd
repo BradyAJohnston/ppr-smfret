@@ -1,5 +1,7 @@
 ---
 title: "ppr-smfret"
+author: Brady Johnston
+date: "2022-08-01"
 fig-width: 9
 fig-align: center
 code-fold: true
@@ -369,3 +371,5 @@ withr::with_options(
     tooltip = list()
   )
 ```
+
+{{< include _page_built_on.qmd >}}

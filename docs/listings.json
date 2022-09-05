@@ -2,7 +2,9 @@
   {
     "listing": "/index.html",
     "items": [
-      "/experiments/dye-labelling/dye-labelling.html"
+      "/experiments/old-labelling.html",
+      "/experiments/dye-labelling-test.html",
+      "/experiments/dye-labelling.html"
     ]
   }
 ]

@@ -1,0 +1,44 @@
+---
+title: 'Looking Back at Old Labelling'
+subtitle: 'Does the old labelling check out? Did it actually work well?'
+author: 'Brady Johnston'
+date: '2022-09-05'
+---
+Testing.
+
+```{r}
+#| message: false
+library(tidyverse)
+library(chromr)
+```
+
+
+```{r}
+#| label: fig-norm-dye
+#| fig-cap: Normalised concentrations of the two dyes used.
+fl <-
+  list.files(
+    "~/Dropbox/BondLab/Data/chromatograms/quadtec_chromatograms/",
+    recursive = TRUE,
+    pattern = "frac\\d",
+    full.names = TRUE
+  )
+
+names(fl) <- stringr::str_extract(fl, "[^/]+$")
+
+dat <- fl |>
+  map_df(chrom_read_quadtech, .id = 'id')
+
+dat |>
+  chrom_add_volume(0.5) |>
+  group_by(id, time, wl) |>
+  filter(wl %in% c(550, 555, 646, 650)) |>
+  mutate(value = value / ifelse(wl == 650, 239e3, 150e3),
+         run = as.numeric(str_extract(id, "(?<=frac)\\d{1,2}")),) |>
+  arrange(-run) |>
+  mutate(id = fct_inorder(id)) |>
+  chrom_plot() +
+  coord_cartesian(xlim = c(0.2, 4), ylim = c(0, NA)) +
+  facet_wrap( ~ id) +
+  theme(legend.position = 'bottom')
+```
