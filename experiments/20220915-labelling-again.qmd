@@ -1,0 +1,91 @@
+---
+title: "Labelling Again"
+editor: visual
+author: Brady Johnston
+date: 2022-09-15
+---
+
+```{r}
+library(here)
+library(chromr)
+library(tidyverse)
+```
+
+```{r}
+fl <- list.files(here("data/sec"), pattern = "10300", full.names = TRUE)
+
+tibble(
+  file = fl
+) %>% 
+  mutate(
+    don = str_extract(file, "\\d(?=Cy3)"), 
+    acc = str_extract(file, "\\d(?=AF)"), 
+    delay = str_extract(file, "\\d{1,2}(?=delay)"), 
+    group = str_glue("{don}Cy3 {acc}AF {delay}Delay {str_detect(file, '10300')}"), 
+  ) %>% 
+  mutate(
+    data = map(file, chrom_read_quadtech)
+  ) %>% 
+  unnest(data) %>% 
+  filter(!is.na(wl)) %>% 
+  # group_by(volume) %>% 
+  select(-name, -unit) %>% 
+  pivot_wider(values_from = value, names_from = wl) %>% 
+  mutate(
+    `280` = `280` - 0.09 * `550` - 0.09 * `650`
+  ) %>% 
+  pivot_longer(
+    -c(time, file, don, acc, delay, group, volume), 
+    values_to = "value", 
+    names_to = "wl"
+  ) %>% 
+  # ungroup() %>% 
+  mutate(
+    ec = c(
+      "280" = 30955, 
+      "550" = 150e3, 
+      "650" = 269e3
+    )[as.character(wl)], 
+    # value = ifelse(wl == 280, value,  value),
+  ) %>% 
+  group_by(group, wl) %>% 
+  mutate(
+  #   start = mean(value[volume < 0.5 & volume > 0.05]), 
+  #   end = mean(value[volume > 4.2 & volume < 4.5]), 
+  #   diff = end - start, 
+  #   time_rel = time / max(time), 
+  #   value = value + sign(diff) * diff * time_rel,
+    conc = value / ec
+  ) %>%
+  group_by(group) %>% 
+  mutate(
+    conc_norm = conc / max(conc[which(volume < 14 & volume > 1)], na.rm = TRUE)
+  ) %>% 
+  # filter(delay == 0) %>%
+  # chrom_plot_fractions()
+  filter(!is.na(wl)) %>% 
+  filter(wl != "fraction") %>% 
+  ggplot(aes(volume, conc_norm, colour = factor(wl), group = interaction(file, wl))) +
+  geom_line() + 
+  scale_colour_manual(
+    values = c(
+      "260" = "gray20", 
+      "280" = "#adc178", 
+      "550" = "#4cc9f0", 
+      "650" = "#6d23b6"
+    )
+  ) + 
+  coord_cartesian(
+    ylim = c(-0.02, 1),
+    xlim = c(6, 18)
+    )  + 
+  # facet_wrap(~group, ncol = 1, scales = "free_y") +
+  facet_grid(
+    cols = vars(acc), 
+    rows = vars(delay)
+  ) + 
+  theme_bw() + 
+  theme(
+    panel.grid = element_blank()
+  )
+```

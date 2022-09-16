@@ -1,0 +1,221 @@
+---
+title: "dsnPPR10 Purification"
+author: Brady Johnston
+date: "2022-09-13"
+fig-width: 9
+fig-align: center
+code-fold: show
+code-link: true
+echo: false
+warning: false
+message: false
+format: 
+  # pdf:
+  #   toc: false
+  #   error: false
+  html:
+    toc: true
+---
+
+```{r}
+#| message: false
+library(here)
+library(tidyverse)
+```
+
+```{r}
+#| label: read-in-functions
+#| code-fold: true
+chrom_read_catwoman <- function(file) {
+  col_names <- readr::read_lines(file, n_max = 1, skip = 1) %>%
+    str_split('\\t\\t', simplify = TRUE) %>%
+    str_trim() %>% 
+    str_extract("[^\\_]+$")
+  
+  col_units <- readr::read_lines(file, n_max = 1, skip = 2) %>% 
+    str_split('\\t', simplify = TRUE) %>% 
+    str_trim()
+  
+  values <- readr::read_table(
+    file = file, 
+    skip = 3, 
+    col_names = paste(rep(col_names, each = 2), col_units), 
+    col_types = readr::cols()
+    ) %>% 
+    janitor::clean_names()
+  
+   frac <- values %>% 
+    mutate(
+      fractions_fractions = str_remove_all(fractions_fractions, '"') %>% 
+        as.numeric()
+    ) %>% 
+    select(matches('frac')) %>% 
+    drop_na()
+  
+  
+  frac_size <- mean(round(diff(frac$fractions_ml), 1))
+  
+  frac <- frac %>% 
+    dplyr::add_row(
+      fractions_ml = frac$fractions_ml[nrow(frac)] + frac_size, 
+      fractions_fractions = NA
+      )
+  
+  values %>% 
+    dplyr::mutate(time_point = dplyr::row_number()) %>% 
+    dplyr::select(-dplyr::matches("fraction")) %>% 
+    tidyr::pivot_longer(-c(dplyr::ends_with("ml"), time_point)) %>%
+    # rename(volume = 1) %>% 
+    # group_by(time_point) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(volume = mean(dplyr::c_across(dplyr::ends_with("ml")))) %>% 
+    dplyr::select(volume, value, name, -dplyr::ends_with("ml"), -time_point) %>%
+    dplyr::mutate(
+      fraction = cut(volume, breaks = frac$fractions_ml, labels = na.omit(frac$fractions_fractions))
+    ) %>% 
+    tidyr::pivot_wider(
+      names_from = name,
+      values_from = value, 
+      values_fn = mean
+    )
+}
+
+
+
+chrom_plot_sec <- function(data, fraction_label = 5, frac_y = 2) {
+  data %>% 
+    dplyr::mutate(
+      value = c_across(starts_with("uv"))
+    ) %>% 
+    ggplot2::ggplot(ggplot2::aes(volume, value)) + 
+    ggplot2::geom_area(
+      data = ~dplyr::filter(.x, !is.na(fraction)), 
+      ggplot2::aes(
+        fill = factor(as.numeric(fraction) %% fraction_label), 
+        group = fraction
+        )
+    ) + 
+    ggplot2::geom_line() + 
+    ggrepel::geom_label_repel(
+      data = ~{.x %>%
+        # filter(fraction %in% frac_sel) %>%
+        dplyr::filter(as.numeric(fraction) %% fraction_label == 0) %>% 
+        dplyr::group_by(fraction) %>%
+        dplyr::summarise(volume = mean(volume))},
+      ggplot2::aes(label = fraction, y = frac_y),
+      box.padding = 0.01,
+      min.segment.length = 10000,
+      direction = "y", 
+      ylim = c(0, NA), 
+      size = 3
+    ) +
+    ggplot2::scale_fill_grey() + 
+    ggplot2::theme_bw() + 
+    ggplot2::scale_x_continuous(
+      "Volume (mL)", 
+      breaks = scales::breaks_pretty(n = 8)
+    ) + 
+    ggplot2::scale_y_continuous(
+      "Absorbance (mAU)"
+    ) + 
+    ggplot2::theme(
+      panel.grid.minor.x = ggplot2::element_blank(), 
+       legend.position = ""
+    )
+  
+}
+```
+
+```{r}
+#| warning: false
+fl <- here("data/imac/20220913_biotin-dsnPPR10C2_IMAC.asc")
+
+
+dat_imac <- chrom_read_catwoman(fl)
+
+dat_imac %>% 
+  chrom_plot_sec() + 
+  geom_line(
+    data = ~dplyr::mutate(.x, value = c_across(contains("percent")) / 100 * max(.x$value, na.rm = TRUE)), 
+    linetype = "dashed", 
+    alpha = 0.4
+  ) + 
+  labs(x = "Volume (mL)",
+       y = "UV Absorbance (280 nm)", 
+       title = "biotin-dsnPPR10-C2 IMAC", 
+       subtitle = "IMAC, 5 mL HisTrap, 2 mL fraction sizes. 0-100 %B over 50 mL.\nBuffer A: 50 mM Tris-HCl, pH 7.0, 0.1 M KCl\nBuffer B: Buffer A + 200 mM Imidazole")
+
+```
+
+![](images/paste-1856428A.png){fig-align="center" width="60%"}
+
+## Comparing nanodrop to CatWoman
+
+```{r}
+nano_readings <- tibble(
+  fraction = c(8, 18, 26, 28, seq(31, 52, by = 3)), 
+  od280 = c(0.57, 0.206, 0.302, 0.492, 0.747, 1.011, 1.108, 0.993, 0.668, 0.410, 0.299, 0.183)
+)
+
+dat_imac %>% 
+  filter(!is.na(fraction)) %>% 
+  group_by(fraction) %>% 
+  summarise(
+    uv = mean(uv_m_au, na.rm = TRUE)
+  ) %>% 
+  mutate(
+    fraction = as.numeric(fraction)
+  ) %>% 
+  right_join(nano_readings) %>% 
+  mutate(
+    uv = uv / 1e3, 
+    ratio = od280 / uv, 
+    adjust = mean(ratio), 
+    uv_adjust = uv * adjust
+  ) %>% 
+  pivot_longer(c(od280, uv_adjust)) %>% 
+  mutate(
+    conc = value / 0.443
+  ) %>% 
+  ggplot(aes(fraction, conc, colour = name)) + 
+  geom_line()
+
+```
+
+\newpage
+
+# Making the Plot of the SEC
+
+```{r}
+sec_file <- here("data/sec/20220914_biotin-dsnPPR10C2_SEC.asc")
+
+
+dat_sec <- chrom_read_catwoman(sec_file)
+  
+chrom_plot_sec(dat_sec, 5)
+
+uv_adjustment = 2.67
+prot_amount = 3
+
+dat_sec %>% 
+  drop_na(fraction) %>% 
+  group_by(fraction) %>% 
+  mutate(
+    value = c_across(starts_with("uv"))
+  ) %>% 
+  summarise(
+    uv = mean(value)
+  ) %>% 
+  mutate(
+    uv_adjust = uv * uv_adjustment / 1e3, 
+    mg_ml = uv_adjust / 0.443, 
+    vol_prot = if_else(prot_amount / mg_ml > 10, 10, prot_amount / mg_ml), 
+    vol_buff = 10 - vol_prot
+  ) %>% 
+  filter(row_number() %% 2 == 1) %>% 
+  mutate(
+    across(where(is.numeric), ~round(.x, 2)),
+    across(starts_with("vol"), ~round(.x, 1))
+    ) %>% 
+  knitr::kable()
+```
