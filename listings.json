@@ -2,6 +2,9 @@
   {
     "listing": "/index.html",
     "items": [
+      "/experiments/20220915-labelling-again.html",
+      "/experiments/dsnppr10-purification.html",
+      "/experiments/old-labelling.html",
       "/experiments/dye-labelling-test.html",
       "/experiments/dye-labelling.html"
     ]

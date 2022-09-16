@@ -1,15 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://BradyAJohnston.github.io/ppr-smfret/experiments/20220915-labelling-again.html</loc>
+    <lastmod>2022-09-16T13:10:19.638Z</lastmod>
+  </url>
+  <url>
     <loc>https://BradyAJohnston.github.io/ppr-smfret/experiments/dye-labelling.html</loc>
-    <lastmod>2022-08-26T09:55:57.462Z</lastmod>
+    <lastmod>2022-09-16T13:10:38.743Z</lastmod>
+  </url>
+  <url>
+    <loc>https://BradyAJohnston.github.io/ppr-smfret/experiments/dsnppr10-purification.html</loc>
+    <lastmod>2022-09-16T13:10:50.402Z</lastmod>
   </url>
   <url>
     <loc>https://BradyAJohnston.github.io/ppr-smfret/experiments/dye-labelling-test.html</loc>
-    <lastmod>2022-08-26T09:56:05.217Z</lastmod>
+    <lastmod>2022-09-16T13:11:02.318Z</lastmod>
+  </url>
+  <url>
+    <loc>https://BradyAJohnston.github.io/ppr-smfret/experiments/old-labelling.html</loc>
+    <lastmod>2022-09-16T13:11:10.939Z</lastmod>
   </url>
   <url>
     <loc>https://BradyAJohnston.github.io/ppr-smfret/index.html</loc>
-    <lastmod>2022-08-26T09:56:05.606Z</lastmod>
+    <lastmod>2022-09-16T13:11:11.406Z</lastmod>
   </url>
 </urlset>
